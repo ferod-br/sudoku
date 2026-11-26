@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Sudoku">
 <meta name="theme-color" content="#f6f3ee">
 <title>Sudoku</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
 <style>
   :root{
     --bg:#f6f3ee; --card:#ffffff; --ink:#1d1f24; --muted:#7a7f8a;
@@ -17,7 +19,7 @@
     --given:#1d1f24; --user:#2563eb;
     --sel:#cfe0ff; --peer:#eef2f8; --same:#dbe7ff;
     --err-bg:#ffe1e1; --err:#d32626;
-    --accent:#2563eb;
+    --accent:#2563eb; --flash:#bde8c9; --grid:#e7e3dc;
   }
   @media (prefers-color-scheme: dark){
     :root{
@@ -26,7 +28,7 @@
       --given:#eceef2; --user:#6ea1ff;
       --sel:#23395f; --peer:#20232b; --same:#2a3a58;
       --err-bg:#4a1f22; --err:#ff6b6b;
-      --accent:#6ea1ff;
+      --accent:#6ea1ff; --flash:#1f5135; --grid:#2a2d35;
     }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -34,22 +36,33 @@
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
     -webkit-user-select:none;user-select:none;touch-action:manipulation;overscroll-behavior:none}
   .app{max-width:480px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;
-    padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 14px);gap:14px}
+    padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 12px);gap:12px}
   header{display:flex;align-items:center;justify-content:space-between}
   h1{font-size:26px;margin:0;font-weight:800;letter-spacing:-.5px}
-  .newbtn{border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;
-    padding:9px 14px;border-radius:12px}
-  .diff{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-radius:12px;padding:4px;gap:4px;
-    box-shadow:0 1px 2px rgba(0,0,0,.06)}
-  .diff button{border:0;background:transparent;color:var(--muted);font-size:15px;font-weight:600;padding:8px 0;border-radius:9px}
-  .diff button.on{background:var(--accent);color:#fff}
+  .hbtns{display:flex;gap:8px;align-items:center}
+  .iconbtn{border:0;background:var(--card);color:var(--ink);width:40px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .iconbtn svg{width:21px;height:21px}
+  .newbtn{border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:9px 14px;border-radius:12px}
+  .seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-radius:12px;padding:4px;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .seg button{border:0;background:transparent;color:var(--muted);font-size:14px;font-weight:600;padding:8px 0;border-radius:9px}
+  .seg button.on{background:var(--accent);color:#fff}
+  .clock{display:flex;align-items:flex-end;justify-content:space-between;padding:0 2px}
+  .clock .big{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1}
+  .clock .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .clock .rec{text-align:right}
+  .clock .rec b{font-size:17px;font-variant-numeric:tabular-nums}
   .stats{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);padding:0 2px}
   .stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .boardwrap{position:relative}
+  .boardwrap.paused .board{filter:blur(9px);pointer-events:none}
+  .pauseov{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+  .boardwrap.paused .pauseov{display:flex}
+  .pauseov button{border:0;background:var(--accent);color:#fff;font-size:17px;font-weight:700;padding:14px 26px;border-radius:14px}
   .board{display:grid;grid-template-columns:repeat(9,1fr);aspect-ratio:1/1;width:100%;
     background:var(--card);border:2.5px solid var(--thick);border-radius:8px;overflow:hidden}
   .cell{display:flex;align-items:center;justify-content:center;font-size:clamp(20px,6.4vw,30px);
     border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;
-    font-variant-numeric:tabular-nums;transition:background .12s}
+    font-variant-numeric:tabular-nums;transition:background .12s;min-width:0;min-height:0}
   .cell:nth-child(9n){border-right:0}
   .cell.c2,.cell.c5{border-right:2.5px solid var(--thick)}
   .cell.r2,.cell.r5{border-bottom:2.5px solid var(--thick)}
@@ -62,48 +75,54 @@
   .cell.wrong{background:var(--err-bg);color:var(--err)}
   .cell.wrong.sel{box-shadow:inset 0 0 0 2px var(--err)}
   .cell.pop{animation:pop .18s ease}
+  .cell.flash{animation:flash .65s ease both}
   @keyframes pop{50%{transform:scale(1.18)}}
-  .hbtns{display:flex;gap:8px;align-items:center}
-  .iconbtn{border:0;background:var(--card);color:var(--ink);width:40px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-  .iconbtn svg{width:21px;height:21px}
-  .clock{display:flex;align-items:flex-end;justify-content:space-between;padding:0 2px}
-  .clock .big{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1}
-  .clock .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-  .clock .rec{text-align:right}
-  .clock .rec b{font-size:17px;font-variant-numeric:tabular-nums}
-  .boardwrap{position:relative}
-  .boardwrap.paused .board{filter:blur(9px);pointer-events:none}
-  .pauseov{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
-  .boardwrap.paused .pauseov{display:flex}
-  .pauseov button{border:0;background:var(--accent);color:#fff;font-size:17px;font-weight:700;padding:14px 26px;border-radius:14px}
-  .stgrid{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:18px;text-align:left}
-  .stcard{background:var(--peer);border-radius:14px;padding:12px 14px}
-  .stcard h3{margin:0 0 8px;font-size:15px}
-  .stcard .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
-  .stcard .kv div{font-size:11px;color:var(--muted);font-weight:600}
-  .stcard .kv b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
-  .rec-badge{display:inline-block;background:#f5b301;color:#1d1f24;font-weight:800;font-size:13px;padding:4px 10px;border-radius:99px;margin-bottom:10px}
-  .linkbtn{background:none!important;color:var(--muted)!important;font-size:13px!important;font-weight:600!important;margin-top:8px;padding:6px!important}
-  .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .tools button{border:0;background:var(--card);color:var(--ink);border-radius:12px;padding:10px 0;font-size:13px;font-weight:600;
-    display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-  .tools svg{width:22px;height:22px}
+  @keyframes flash{0%{background:inherit}35%{background:var(--flash);transform:scale(1.06)}100%{}}
+  .notes{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:100%;height:100%;padding:1px}
+  .notes span{display:flex;align-items:center;justify-content:center;font-size:clamp(9px,2.6vw,12px);color:var(--muted);font-weight:600;line-height:1}
+  .notes span.hl{color:#fff;background:var(--accent);border-radius:4px}
+  .tools{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+  .tools button{border:0;background:var(--card);color:var(--ink);border-radius:12px;padding:9px 0;font-size:12px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.06);position:relative}
+  .tools svg{width:21px;height:21px}
+  .tools button.on{background:var(--accent);color:#fff}
   .pad{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
   .pad button{border:0;background:var(--card);color:var(--accent);font-size:clamp(22px,7vw,32px);font-weight:500;
-    padding:10px 0 6px;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center}
-  .pad button small{font-size:10px;color:var(--muted);font-weight:600;margin-top:2px}
+    padding:9px 0 5px;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center}
+  .pad button small{font-size:10px;color:var(--muted);font-weight:600;margin-top:2px;min-height:12px}
   .pad button.done{opacity:.3}
-  .pad button:active,.tools button:active,.newbtn:active{transform:scale(.95)}
-  .hint{font-size:12.5px;color:var(--muted);text-align:center;margin-top:auto;line-height:1.4}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+  .pad.notesmode button{color:var(--muted);font-size:clamp(17px,5vw,22px);padding-top:13px}
+  .pad button:active,.tools button:active,.newbtn:active,.iconbtn:active{transform:scale(.95)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
   .modal.show{display:flex}
-  .modal .box{background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:340px;text-align:center}
+  .modal .box{background:var(--card);border-radius:20px;padding:22px;width:100%;max-width:380px;text-align:center;max-height:88vh;overflow:auto}
   .modal h2{margin:0 0 6px;font-size:22px}
   .modal p{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.4}
   .modal .row{display:flex;gap:10px}
-  .modal button{flex:1;border:0;border-radius:12px;padding:12px;font-size:16px;font-weight:700}
+  .modal .row button{flex:1;border:0;border-radius:12px;padding:12px;font-size:16px;font-weight:700}
   .modal .pri{background:var(--accent);color:#fff}
   .modal .sec{background:var(--peer);color:var(--ink)}
+  .modal .seg{box-shadow:none;background:var(--peer);margin:10px 0 14px}
+  .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:left;margin-bottom:14px}
+  .kv div{font-size:11px;color:var(--muted);font-weight:600}
+  .kv b{display:block;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+  .chartbox{background:var(--peer);border-radius:14px;padding:10px 10px 8px;margin-bottom:12px;text-align:left}
+  .chartbox .ct{font-size:13px;font-weight:700;margin:0 0 2px 2px}
+  .chartbox .cs{font-size:11.5px;color:var(--muted);margin:0 0 4px 2px}
+  .chartbox svg{width:100%;height:auto;display:block;overflow:visible}
+  .chartbox .tip{font-size:12.5px;color:var(--ink);min-height:18px;margin:4px 2px 0;font-variant-numeric:tabular-nums}
+  .chartbox .empty{font-size:13px;color:var(--muted);padding:26px 6px;text-align:center}
+  .hist{text-align:left;margin-bottom:16px}
+  .hist h3{font-size:13px;margin:0 0 6px 2px}
+  .hist table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+  .hist th{color:var(--muted);font-weight:600;font-size:11px;text-align:left;padding:4px 4px;border-bottom:1px solid var(--line)}
+  .hist td{padding:7px 4px;border-bottom:1px solid var(--grid)}
+  .hist td.r,.hist th.r{text-align:right}
+  .rec-badge{display:inline-block;background:#f5b301;color:#1d1f24;font-weight:800;font-size:13px;padding:4px 10px;border-radius:99px;margin-bottom:10px}
+  .linkbtn{border:0;background:none;color:var(--muted);font-size:13px;font-weight:600;margin-top:10px;padding:6px}
+  .loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.25);z-index:20}
+  .loading.show{display:flex}
+  .loading div{background:var(--card);padding:14px 20px;border-radius:14px;font-weight:600}
 </style>
 </head>
 <body>
@@ -116,11 +135,7 @@
     </div>
   </header>
 
-  <div class="diff" id="diff">
-    <button data-d="facil">Fácil</button>
-    <button data-d="medio">Médio</button>
-    <button data-d="dificil">Difícil</button>
-  </div>
+  <div class="seg" id="diff"></div>
 
   <div class="clock">
     <div><div class="lbl">Sessão atual</div><div class="big" id="time">00:00</div></div>
@@ -142,27 +157,29 @@
     <button id="pauseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5v14"/><path d="M15 5v14"/></svg><span id="pauseLbl">Pausar</span></button>
     <button id="undoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Desfazer</button>
     <button id="eraseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>Apagar</button>
+    <button id="notesBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span id="notesLbl">Notas</span></button>
     <button id="restartBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reiniciar</button>
   </div>
 
   <div class="pad" id="pad"></div>
-
-  <div class="hint">Toque numa célula e escolha o número. Números em <b style="color:var(--user)">azul</b> são seus e podem ser trocados; os pretos vieram no tabuleiro e são fixos.</div>
 </div>
+
+<label id="hapLbl" aria-hidden="true" style="display:none"><input type="checkbox" switch id="hapInput"></label>
 
 <div class="modal" id="winModal">
   <div class="box">
     <h2>🎉 Parabéns!</h2>
     <div id="winRec" class="rec-badge" style="display:none">🏆 Novo recorde!</div>
     <p id="winText"></p>
-    <div class="row"><button class="pri" id="winNew">Jogar de novo</button></div>
+    <div class="row"><button class="sec" id="winStats">Estatísticas</button><button class="pri" id="winNew">Jogar de novo</button></div>
   </div>
 </div>
 
 <div class="modal" id="statsModal">
   <div class="box">
     <h2>Estatísticas</h2>
-    <div class="stgrid" id="stGrid"></div>
+    <div class="seg" id="statsTabs"></div>
+    <div id="statsBody"></div>
     <div class="row"><button class="pri" id="statsClose">Fechar</button></div>
     <button class="linkbtn" id="statsReset">Zerar estatísticas</button>
   </div>
@@ -170,29 +187,39 @@
 
 <div class="modal" id="confirmModal">
   <div class="box">
-    <h2 id="cTitle">Novo jogo?</h2>
-    <p id="cText">O jogo atual será descartado.</p>
+    <h2 id="cTitle"></h2>
+    <p id="cText"></p>
     <div class="row"><button class="sec" id="cNo">Cancelar</button><button class="pri" id="cYes">Confirmar</button></div>
   </div>
 </div>
 
+<div class="loading" id="loading"><div>Sorteando tabuleiro…</div></div>
+
 <script>
 (() => {
-  const LEVELS = { facil:{label:'Fácil', givens:40}, medio:{label:'Médio', givens:32}, dificil:{label:'Difícil', givens:25} };
+  const LEVELS = {
+    facil:  {label:'Fácil',   givens:40},
+    medio:  {label:'Médio',   givens:32},
+    dificil:{label:'Difícil', givens:25},
+    expert: {label:'Expert',  givens:22},
+  };
+  const LV = Object.keys(LEVELS);
   const $ = id => document.getElementById(id);
   const boardEl = $('board'), padEl = $('pad');
 
-  let st = null;           // estado do jogo
-  let selected = -1;
-  let timerId = null;
+  let st = null, selected = -1, timerId = null, paused = false, notesMode = false;
 
-  // ---------- Gerador ----------
+  // ================= Gerador =================
   const rowOf = i => Math.floor(i/9), colOf = i => i%9, boxOf = i => Math.floor(rowOf(i)/3)*3 + Math.floor(colOf(i)/3);
-  const PEERS = Array.from({length:81}, (_, i) => {
-    const s = new Set();
-    for (let j=0;j<81;j++) if (j!==i && (rowOf(j)===rowOf(i)||colOf(j)===colOf(i)||boxOf(j)===boxOf(i))) s.add(j);
-    return [...s];
-  });
+  const UNITS = [];
+  for (let k=0;k<9;k++){
+    UNITS.push([...Array(9)].map((_,j)=>k*9+j));                    // linha
+    UNITS.push([...Array(9)].map((_,j)=>j*9+k));                    // coluna
+    const r0=Math.floor(k/3)*3, c0=(k%3)*3;
+    UNITS.push([...Array(9)].map((_,j)=>(r0+Math.floor(j/3))*9 + c0 + j%3)); // bloco
+  }
+  const UNITS_OF = Array.from({length:81}, (_,i)=>UNITS.filter(u=>u.includes(i)));
+  const PEERS = Array.from({length:81}, (_, i) => [...new Set(UNITS_OF[i].flat())].filter(j=>j!==i));
   const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
   const canPlace = (g,i,v) => PEERS[i].every(p => g[p]!==v);
 
@@ -205,7 +232,6 @@
     return false;
   }
 
-  // Conta soluções (para no limite) — garante solução única
   function countSolutions(g, limit=2){
     let best=-1, bestOpts=null;
     for (let i=0;i<81;i++){
@@ -220,59 +246,84 @@
     return n;
   }
 
-  function generate(level){
+  function generateOnce(target){
     const solution = Array(81).fill(0); fillFull(solution);
     const puzzle = solution.slice();
     let filled = 81;
-    const target = LEVELS[level].givens;
     for (const i of shuffle([...Array(81).keys()])){
       if (filled<=target) break;
       const bak = puzzle[i]; puzzle[i]=0;
       if (countSolutions(puzzle.slice())!==1) puzzle[i]=bak; else filled--;
     }
-    return { solution, puzzle };
+    return { solution, puzzle, filled };
   }
 
-  // ---------- Estado ----------
-  function newGame(level){
-    const {solution, puzzle} = generate(level);
-    st = { level, solution, given: puzzle.map(v=>v>0), values: puzzle.slice(), errors:0, seconds:0, history:[], won:false };
-    selected = -1; setPaused(false);
-    recordStart(level);
-    save(); render(); startTimer();
+  // Níveis mais difíceis podem precisar de várias tentativas para chegar ao alvo
+  function generate(level){
+    const target = LEVELS[level].givens, t0 = Date.now();
+    let best = null;
+    do {
+      const g = generateOnce(target);
+      if (!best || g.filled < best.filled) best = g;
+    } while (best.filled > target && Date.now()-t0 < 2500);
+    return best;
   }
 
-  // ---------- Estatísticas por nível ----------
-  const blankStats = () => ({ facil:{played:0,won:0,total:0,best:null}, medio:{played:0,won:0,total:0,best:null}, dificil:{played:0,won:0,total:0,best:null} });
-  let stats = (()=>{ try{ const s=JSON.parse(localStorage.getItem('sudoku-stats')); if(s && s.facil) return s; }catch(e){} return blankStats(); })();
+  // ================= Estatísticas =================
+  const blankLevel = () => ({played:0,won:0,total:0,best:null,games:[]});
+  function loadStats(){
+    let s=null; try{ s=JSON.parse(localStorage.getItem('sudoku-stats')); }catch(e){}
+    s = s && typeof s==='object' ? s : {};
+    LV.forEach(k=>{ s[k] = Object.assign(blankLevel(), s[k]||{}); if(!Array.isArray(s[k].games)) s[k].games=[]; });
+    return s;
+  }
+  let stats = loadStats();
   const saveStats = () => { try{ localStorage.setItem('sudoku-stats', JSON.stringify(stats)); }catch(e){} };
   const avgOf = s => s.won ? Math.round(s.total/s.won) : null;
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const fmtOr = s => s==null ? '--:--' : fmt(s);
 
   function recordStart(level){ stats[level].played++; saveStats(); }
-  function recordWin(level, secs){
+  function recordWin(level, secs, errors){
     const s=stats[level]; const isRecord = s.best==null || secs < s.best;
-    s.won++; s.total+=secs; if (isRecord) s.best=secs; saveStats();
+    s.won++; s.total+=secs; if (isRecord) s.best=secs;
+    s.games.push({d:Date.now(), t:secs, e:errors, r:isRecord});
+    if (s.games.length>50) s.games = s.games.slice(-50);
+    saveStats();
     return isRecord;
   }
 
-  function renderStats(){
-    $('stGrid').innerHTML = Object.keys(LEVELS).map(k=>{
-      const s=stats[k];
-      return `<div class="stcard"><h3>${LEVELS[k].label}</h3><div class="kv">
-        <div>Jogadas<b>${s.played}</b></div>
-        <div>Concluídas<b>${s.won}</b></div>
-        <div>Recorde<b>${fmtOr(s.best)}</b></div>
-        <div>Média<b>${fmtOr(avgOf(s))}</b></div>
-      </div></div>`;
-    }).join('');
+  // ================= Estado do jogo =================
+  function newGame(level){
+    $('loading').classList.add('show');
+    setTimeout(()=>{
+      const {solution, puzzle} = generate(level);
+      st = { level, solution, given: puzzle.map(v=>v>0), values: puzzle.slice(), notes:Array(81).fill(0),
+             errors:0, seconds:0, history:[], won:false };
+      selected = -1; setPaused(false);
+      recordStart(level);
+      save(); render(); startTimer();
+      $('loading').classList.remove('show');
+    }, 30);
   }
 
   function save(){ try{ localStorage.setItem('sudoku-mockup', JSON.stringify(st)); }catch(e){} }
-  function load(){ try{ const s = JSON.parse(localStorage.getItem('sudoku-mockup')); if (s && s.values && s.values.length===81) return s; }catch(e){} return null; }
+  function load(){
+    try{
+      const s = JSON.parse(localStorage.getItem('sudoku-mockup'));
+      if (s && s.values && s.values.length===81 && LEVELS[s.level]) {
+        if (!Array.isArray(s.notes)) s.notes = Array(81).fill(0);
+        if (!Array.isArray(s.history) || (s.history[0] && !s.history[0].v)) s.history = [];
+        return s;
+      }
+    }catch(e){}
+    return null;
+  }
 
-  // ---------- Render ----------
-  function buildBoard(){
+  // ================= Render =================
+  function buildUI(){
+    $('diff').innerHTML = LV.map(k=>`<button data-d="${k}">${LEVELS[k].label}</button>`).join('');
+    $('statsTabs').innerHTML = LV.map(k=>`<button data-d="${k}">${LEVELS[k].label}</button>`).join('');
     boardEl.innerHTML='';
     for (let i=0;i<81;i++){
       const c=document.createElement('div');
@@ -295,23 +346,31 @@
     let left=0;
     const counts=Array(10).fill(0);
     [...boardEl.children].forEach((c,i)=>{
-      const v=st.values[i];
+      const v=st.values[i], nm=st.notes[i];
       const wrong = v && !st.given[i] && v!==st.solution[i];
       if (!v || wrong) left++;
       if (v && !wrong) counts[v]++;
-      c.textContent = v || '';
+      if (v) c.textContent = v;
+      else if (nm) c.innerHTML = '<div class="notes">' + [1,2,3,4,5,6,7,8,9].map(n=>{
+          const on = nm>>n & 1;
+          return `<span class="${on && n===selVal ? 'hl':''}">${on ? n : ''}</span>`;
+        }).join('') + '</div>';
+      else c.textContent = '';
       c.classList.toggle('given', st.given[i]);
       c.classList.toggle('user', !st.given[i] && !!v);
       c.classList.toggle('wrong', !!wrong);
       c.classList.toggle('sel', i===selected);
       c.classList.toggle('peer', selPeers.has(i));
-      c.classList.toggle('same', i!==selected && selVal && v===selVal);
+      c.classList.toggle('same', i!==selected && !!selVal && v===selVal);
     });
     [...padEl.children].forEach(b=>{
       const v=+b.dataset.v, rem=9-counts[v];
       b.querySelector('small').textContent = rem>0 ? rem : '';
       b.classList.toggle('done', rem<=0);
     });
+    padEl.classList.toggle('notesmode', notesMode);
+    $('notesBtn').classList.toggle('on', notesMode);
+    $('notesLbl').textContent = notesMode ? 'Notas ✓' : 'Notas';
     $('errs').textContent = st.errors;
     $('left').textContent = left;
     $('time').textContent = fmt(st.seconds);
@@ -322,102 +381,220 @@
     document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on', b.dataset.d===st.level));
   }
 
-  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  // ================= Efeitos =================
+  function haptic(times=1){
+    // Android/Chrome: Vibration API. iPhone (iOS 18+): o toque num "switch" nativo gera um toque háptico.
+    try{
+      if (navigator.vibrate) { navigator.vibrate(times>1 ? [30,60,30] : 25); return; }
+      for (let k=0;k<times;k++) setTimeout(()=>$('hapLbl').click(), k*120);
+    }catch(e){}
+  }
 
-  // ---------- Interação ----------
+  function flashCells(idxs, step=35){
+    idxs.forEach((i,k)=>{
+      const c=boardEl.children[i];
+      c.classList.remove('flash'); void c.offsetWidth;
+      c.style.animationDelay = (k*step)+'ms';
+      c.classList.add('flash');
+      setTimeout(()=>{ c.classList.remove('flash'); c.style.animationDelay=''; }, 700 + k*step);
+    });
+  }
+
+  function checkUnitsCompleted(i){
+    const done = UNITS_OF[i].filter(u => u.every(j => st.values[j]===st.solution[j]));
+    if (!done.length) return;
+    const cells = [...new Set(done.flat())];
+    // ordena a partir da célula tocada, para o efeito "espalhar"
+    cells.sort((a,b)=> (Math.abs(rowOf(a)-rowOf(i))+Math.abs(colOf(a)-colOf(i))) - (Math.abs(rowOf(b)-rowOf(i))+Math.abs(colOf(b)-colOf(i))));
+    flashCells(cells, 30);
+    haptic(done.length>1 ? 2 : 1);
+  }
+
+  // ================= Interação =================
   function select(i){ selected=i; render(); }
 
-  function setValue(i, v, record=true){
-    const prev = st.values[i];
-    if (prev===v) return;
-    if (record) st.history.push({i, prev});
-    st.values[i]=v;
-    if (v && v!==st.solution[i]) { st.errors++; if (navigator.vibrate) try{navigator.vibrate(60)}catch(e){} }
-    const c=boardEl.children[i]; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
-    save(); render(); checkWin();
+  function snapshot(){
+    st.history.push({ v: st.values.slice(), n: st.notes.slice() });
+    if (st.history.length>200) st.history.shift();
   }
 
   function input(v){
     if (paused || st.won || selected<0 || st.given[selected]) return;   // pré-preenchidas são bloqueadas
-    setValue(selected, st.values[selected]===v ? 0 : v);      // tocar o mesmo número apaga
+    const i = selected;
+    if (notesMode) {
+      if (st.values[i] && st.values[i]===st.solution[i]) return;      // célula já resolvida
+      snapshot();
+      if (st.values[i]) st.values[i]=0;
+      st.notes[i] ^= (1<<v);
+      save(); render(); return;
+    }
+    snapshot();
+    if (st.values[i]===v) { st.values[i]=0; save(); render(); return; }  // tocar o mesmo número apaga
+    st.values[i]=v; st.notes[i]=0;
+    const c=boardEl.children[i]; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+    if (v!==st.solution[i]) { st.errors++; haptic(1); }
+    else PEERS[i].forEach(p=>{ st.notes[p] &= ~(1<<v); });               // limpa a nota nas vizinhas
+    save(); render();
+    if (v===st.solution[i] && !checkWin()) checkUnitsCompleted(i);
   }
 
   function erase(){
     if (paused || st.won || selected<0 || st.given[selected]) return;
-    setValue(selected, 0);
+    if (!st.values[selected] && !st.notes[selected]) return;
+    snapshot();
+    st.values[selected]=0; st.notes[selected]=0;
+    save(); render();
   }
 
   function undo(){
     if (paused || st.won) return;
     const h = st.history.pop(); if (!h) return;
-    st.values[h.i]=h.prev; selected=h.i; save(); render();
+    st.values = h.v; st.notes = h.n; save(); render();
   }
 
   function checkWin(){
-    if (st.values.every((v,i)=>v===st.solution[i])){
-      st.won=true; stopTimer(); save();
-      const isRecord = recordWin(st.level, st.seconds);
-      $('winRec').style.display = isRecord ? 'inline-block' : 'none';
-      render();
-      $('winText').textContent = `Você resolveu o nível ${LEVELS[st.level].label} em ${fmt(st.seconds)} com ${st.errors} erro${st.errors===1?'':'s'}.`;
-      setTimeout(()=>$('winModal').classList.add('show'), 250);
-    }
+    if (!st.values.every((v,i)=>v===st.solution[i])) return false;
+    st.won=true; stopTimer(); save();
+    const isRecord = recordWin(st.level, st.seconds, st.errors);
+    render();
+    const order=[...Array(81).keys()].sort((a,b)=>(rowOf(a)+colOf(a))-(rowOf(b)+colOf(b)));
+    flashCells(order, 9);
+    haptic(3);
+    $('winRec').style.display = isRecord ? 'inline-block' : 'none';
+    $('winText').textContent = `Você resolveu o nível ${LEVELS[st.level].label} em ${fmt(st.seconds)} com ${st.errors} erro${st.errors===1?'':'s'}.`;
+    setTimeout(()=>$('winModal').classList.add('show'), 1100);
+    return true;
   }
 
-  // ---------- Timer ----------
+  // ================= Timer / pausa =================
   function startTimer(){
     stopTimer();
     if (st.won) return;
     timerId=setInterval(()=>{ if(document.hidden || paused) return; st.seconds++; $('time').textContent=fmt(st.seconds); if(st.seconds%5===0) save(); },1000);
   }
   function stopTimer(){ if (timerId) clearInterval(timerId); timerId=null; }
-
-  // ---------- Pausa ----------
-  let paused=false;
   function setPaused(p){
     paused = p && !(st && st.won);
     $('boardwrap').classList.toggle('paused', paused);
     $('pauseLbl').textContent = paused ? 'Continuar' : 'Pausar';
   }
-  $('pauseBtn').onclick = () => setPaused(!paused);
-  $('resumeBtn').onclick = () => setPaused(false);
 
-  // ---------- Confirmações ----------
-  let pendingAction=null;
-  function confirmThen(title, text, fn){
-    const inProgress = !st.won && st.values.some((v,i)=>v && !st.given[i]);
-    if (!inProgress) return fn();
-    ask(title, text, fn);
+  // ================= Tela de estatísticas =================
+  let statsLevel = 'facil';
+  function renderStats(){
+    document.querySelectorAll('#statsTabs button').forEach(b=>b.classList.toggle('on', b.dataset.d===statsLevel));
+    const s = stats[statsLevel], games = s.games;
+    const done = s.played ? Math.round(100*s.won/s.played) : 0;
+    let html = `<div class="kv">
+      <div>Jogadas<b>${s.played}</b></div>
+      <div>Concluídas<b>${s.won}${s.played?` <span style="font-size:11px;color:var(--muted)">${done}%</span>`:''}</b></div>
+      <div>Recorde<b>${fmtOr(s.best)}</b></div>
+      <div>Média<b>${fmtOr(avgOf(s))}</b></div>
+    </div>`;
+
+    const last = games.slice(-20);
+    html += `<div class="chartbox"><div class="ct">Tempo por partida concluída</div>`;
+    if (last.length < 2) {
+      html += `<div class="empty">Termine pelo menos 2 partidas neste nível para ver a evolução.</div></div>`;
+    } else {
+      html += `<div class="cs">Últimas ${last.length} · da mais antiga (esq.) à mais recente (dir.) · tracejado = média</div>`;
+      html += chartSVG(last, avgOf(s)) + `<div class="tip" id="chartTip">Toque num ponto para ver os detalhes.</div></div>`;
+    }
+
+    const recent = games.slice(-10).reverse();
+    if (recent.length){
+      html += `<div class="hist"><h3>Últimas partidas</h3><table><thead><tr><th>Data</th><th class="r">Tempo</th><th class="r">Erros</th></tr></thead><tbody>` +
+        recent.map(g=>`<tr><td>${fmtDate(g.d)}</td><td class="r">${fmt(g.t)}${g.r?' 🏆':''}</td><td class="r">${g.e}</td></tr>`).join('') +
+        `</tbody></table></div>`;
+    }
+    $('statsBody').innerHTML = html;
+
+    $('statsBody').querySelectorAll('[data-g]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const k=+el.dataset.g, g=last[k];
+        $('statsBody').querySelectorAll('.pt').forEach(p=>p.setAttribute('r', p.dataset.k==k ? 6 : 4));
+        $('chartTip').innerHTML = `<b>${fmt(g.t)}</b> · ${g.e} erro${g.e===1?'':'s'} · ${fmtDate(g.d)}${g.r?' · 🏆 recorde':''}`;
+      });
+    });
   }
+
+  function fmtDate(ts){
+    const d=new Date(ts), p=n=>String(n).padStart(2,'0');
+    return `${p(d.getDate())}/${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  function chartSVG(games, avg){
+    const W=320, H=150, L=40, R=10, T=10, B=14;
+    const max = Math.max(...games.map(g=>g.t), avg||0);
+    const niceMax = Math.max(60, Math.ceil(max*1.1/60)*60);
+    const x = k => L + (games.length===1 ? (W-L-R)/2 : k*(W-L-R)/(games.length-1));
+    const y = t => T + (H-T-B) * (1 - t/niceMax);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tempo das últimas partidas">`;
+    [0, .5, 1].forEach(f=>{
+      const t=Math.round(niceMax*f), yy=y(t);
+      svg += `<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="var(--grid)" stroke-width="1"/>`;
+      svg += `<text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmt(t)}</text>`;
+    });
+    if (avg!=null) svg += `<line x1="${L}" x2="${W-R}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>`;
+    svg += `<polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${games.map((g,k)=>`${x(k)},${y(g.t)}`).join(' ')}"/>`;
+    games.forEach((g,k)=>{
+      svg += `<circle class="pt" data-k="${k}" cx="${x(k)}" cy="${y(g.t)}" r="4" fill="var(--accent)" stroke="var(--peer)" stroke-width="2"/>`;
+      svg += `<circle data-g="${k}" cx="${x(k)}" cy="${y(g.t)}" r="14" fill="transparent" style="cursor:pointer"/>`;
+    });
+    return svg + `</svg>`;
+  }
+
+  function openStats(level){
+    statsLevel = level || st.level; renderStats();
+    $('statsModal').classList.add('show');
+  }
+
+  // ================= Confirmações =================
+  let pendingAction=null;
   function ask(title, text, fn){
     $('cTitle').textContent=title; $('cText').textContent=text; pendingAction=fn;
     $('confirmModal').classList.add('show');
   }
+  function confirmThen(title, text, fn){
+    const inProgress = !st.won && st.values.some((v,i)=>(v && !st.given[i]) || st.notes[i]);
+    if (!inProgress) return fn();
+    ask(title, text, fn);
+  }
   $('cNo').onclick=()=>{ $('confirmModal').classList.remove('show'); pendingAction=null; };
   $('cYes').onclick=()=>{ $('confirmModal').classList.remove('show'); const f=pendingAction; pendingAction=null; f && f(); };
 
-  // ---------- Eventos ----------
+  // ================= Eventos =================
+  buildUI();
   $('newBtn').onclick = () => confirmThen('Novo jogo?', 'O jogo atual será descartado.', ()=>newGame(st.level));
   $('eraseBtn').onclick = erase;
   $('undoBtn').onclick = undo;
-  $('restartBtn').onclick = () => confirmThen('Reiniciar?', 'Todos os números que você preencheu serão apagados.', ()=>{
-    st.values = st.values.map((v,i)=>st.given[i]?v:0); st.history=[]; st.errors=0; st.seconds=0; st.won=false; selected=-1; save(); render(); startTimer();
+  $('notesBtn').onclick = () => { notesMode = !notesMode; render(); };
+  $('pauseBtn').onclick = () => setPaused(!paused);
+  $('resumeBtn').onclick = () => setPaused(false);
+  $('restartBtn').onclick = () => confirmThen('Reiniciar?', 'Todos os números e anotações que você fez serão apagados.', ()=>{
+    st.values = st.values.map((v,i)=>st.given[i]?v:0); st.notes=Array(81).fill(0);
+    st.history=[]; st.errors=0; st.seconds=0; st.won=false; selected=-1; setPaused(false); save(); render(); startTimer();
   });
   document.querySelectorAll('#diff button').forEach(b=> b.onclick = () => {
     if (b.dataset.d===st.level) return;
     confirmThen(`Mudar para ${LEVELS[b.dataset.d].label}?`, 'Um novo tabuleiro será sorteado e o atual será descartado.', ()=>newGame(b.dataset.d));
   });
-  $('statsBtn').onclick = () => { renderStats(); $('statsModal').classList.add('show'); };
+  document.querySelectorAll('#statsTabs button').forEach(b=> b.onclick = () => { statsLevel=b.dataset.d; renderStats(); });
+  $('statsBtn').onclick = () => openStats();
   $('statsClose').onclick = () => $('statsModal').classList.remove('show');
-  $('statsReset').onclick = () => ask('Zerar estatísticas?', 'Recordes, médias e contagem de jogos de todos os níveis serão apagados.', ()=>{
-    stats = blankStats(); saveStats(); renderStats(); render();
+  $('statsReset').onclick = () => ask('Zerar estatísticas?', 'Recordes, médias, histórico e contagem de jogos de todos os níveis serão apagados.', ()=>{
+    stats = loadStats(); LV.forEach(k=>stats[k]=blankLevel()); saveStats(); renderStats(); render();
   });
   $('winNew').onclick = () => { $('winModal').classList.remove('show'); newGame(st.level); };
+  $('winStats').onclick = () => { $('winModal').classList.remove('show'); openStats(st.level); };
 
   // Teclado (para testar no computador)
   document.addEventListener('keydown', e=>{
+    if (!st) return;
     if (/^[1-9]$/.test(e.key)) input(+e.key);
     else if (e.key==='Backspace'||e.key==='Delete'||e.key==='0') erase();
+    else if (e.key==='n'||e.key==='N') { notesMode=!notesMode; render(); }
+    else if ((e.key==='z'||e.key==='Z') && (e.metaKey||e.ctrlKey)) undo();
     else if (e.key.startsWith('Arrow')){
       if (selected<0) selected=0;
       const r=rowOf(selected), c=colOf(selected);
@@ -426,11 +603,15 @@
     }
   });
 
-  // ---------- Início ----------
-  buildBoard();
+  // ================= Início =================
   const saved = load();
-  if (saved) { st = saved; st.history = st.history || []; render(); startTimer(); }
+  if (saved) { st = saved; render(); startTimer(); }
   else newGame('facil');
+
+  // Modo offline: o service worker guarda o jogo no aparelho
+  if ('serviceWorker' in navigator && location.protocol==='https:') {
+    try { navigator.serviceWorker.register('sw.js').catch(()=>{}); } catch(e){}
+  }
 })();
 </script>
 </body>
