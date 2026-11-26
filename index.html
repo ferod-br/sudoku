@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sudoku">
+<meta name="theme-color" content="#f6f3ee">
+<title>Sudoku</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#ffffff; --ink:#1d1f24; --muted:#7a7f8a;
+    --line:#cfcac1; --thick:#2b2e35;
+    --given:#1d1f24; --user:#2563eb;
+    --sel:#cfe0ff; --peer:#eef2f8; --same:#dbe7ff;
+    --err-bg:#ffe1e1; --err:#d32626;
+    --accent:#2563eb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#121317; --card:#1b1d23; --ink:#eceef2; --muted:#8c92a0;
+      --line:#34373f; --thick:#8a8f9a;
+      --given:#eceef2; --user:#6ea1ff;
+      --sel:#23395f; --peer:#20232b; --same:#2a3a58;
+      --err-bg:#4a1f22; --err:#ff6b6b;
+      --accent:#6ea1ff;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-user-select:none;user-select:none;touch-action:manipulation;overscroll-behavior:none}
+  .app{max-width:480px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 14px);gap:14px}
+  header{display:flex;align-items:center;justify-content:space-between}
+  h1{font-size:26px;margin:0;font-weight:800;letter-spacing:-.5px}
+  .newbtn{border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;
+    padding:9px 14px;border-radius:12px}
+  .diff{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-radius:12px;padding:4px;gap:4px;
+    box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .diff button{border:0;background:transparent;color:var(--muted);font-size:15px;font-weight:600;padding:8px 0;border-radius:9px}
+  .diff button.on{background:var(--accent);color:#fff}
+  .stats{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);padding:0 2px}
+  .stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .board{display:grid;grid-template-columns:repeat(9,1fr);aspect-ratio:1/1;width:100%;
+    background:var(--card);border:2.5px solid var(--thick);border-radius:8px;overflow:hidden}
+  .cell{display:flex;align-items:center;justify-content:center;font-size:clamp(20px,6.4vw,30px);
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;
+    font-variant-numeric:tabular-nums;transition:background .12s}
+  .cell:nth-child(9n){border-right:0}
+  .cell.c2,.cell.c5{border-right:2.5px solid var(--thick)}
+  .cell.r2,.cell.r5{border-bottom:2.5px solid var(--thick)}
+  .cell.r8{border-bottom:0}
+  .cell.given{color:var(--given);font-weight:700}
+  .cell.user{color:var(--user);font-weight:500}
+  .cell.peer{background:var(--peer)}
+  .cell.same{background:var(--same)}
+  .cell.sel{background:var(--sel)}
+  .cell.wrong{background:var(--err-bg);color:var(--err)}
+  .cell.wrong.sel{box-shadow:inset 0 0 0 2px var(--err)}
+  .cell.pop{animation:pop .18s ease}
+  @keyframes pop{50%{transform:scale(1.18)}}
+  .hbtns{display:flex;gap:8px;align-items:center}
+  .iconbtn{border:0;background:var(--card);color:var(--ink);width:40px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .iconbtn svg{width:21px;height:21px}
+  .clock{display:flex;align-items:flex-end;justify-content:space-between;padding:0 2px}
+  .clock .big{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1}
+  .clock .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .clock .rec{text-align:right}
+  .clock .rec b{font-size:17px;font-variant-numeric:tabular-nums}
+  .boardwrap{position:relative}
+  .boardwrap.paused .board{filter:blur(9px);pointer-events:none}
+  .pauseov{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+  .boardwrap.paused .pauseov{display:flex}
+  .pauseov button{border:0;background:var(--accent);color:#fff;font-size:17px;font-weight:700;padding:14px 26px;border-radius:14px}
+  .stgrid{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:18px;text-align:left}
+  .stcard{background:var(--peer);border-radius:14px;padding:12px 14px}
+  .stcard h3{margin:0 0 8px;font-size:15px}
+  .stcard .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .stcard .kv div{font-size:11px;color:var(--muted);font-weight:600}
+  .stcard .kv b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+  .rec-badge{display:inline-block;background:#f5b301;color:#1d1f24;font-weight:800;font-size:13px;padding:4px 10px;border-radius:99px;margin-bottom:10px}
+  .linkbtn{background:none!important;color:var(--muted)!important;font-size:13px!important;font-weight:600!important;margin-top:8px;padding:6px!important}
+  .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .tools button{border:0;background:var(--card);color:var(--ink);border-radius:12px;padding:10px 0;font-size:13px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .tools svg{width:22px;height:22px}
+  .pad{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+  .pad button{border:0;background:var(--card);color:var(--accent);font-size:clamp(22px,7vw,32px);font-weight:500;
+    padding:10px 0 6px;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center}
+  .pad button small{font-size:10px;color:var(--muted);font-weight:600;margin-top:2px}
+  .pad button.done{opacity:.3}
+  .pad button:active,.tools button:active,.newbtn:active{transform:scale(.95)}
+  .hint{font-size:12.5px;color:var(--muted);text-align:center;margin-top:auto;line-height:1.4}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+  .modal.show{display:flex}
+  .modal .box{background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:340px;text-align:center}
+  .modal h2{margin:0 0 6px;font-size:22px}
+  .modal p{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.4}
+  .modal .row{display:flex;gap:10px}
+  .modal button{flex:1;border:0;border-radius:12px;padding:12px;font-size:16px;font-weight:700}
+  .modal .pri{background:var(--accent);color:#fff}
+  .modal .sec{background:var(--peer);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Sudoku</h1>
+    <div class="hbtns">
+      <button class="iconbtn" id="statsBtn" aria-label="Estatísticas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></button>
+      <button class="newbtn" id="newBtn">Novo jogo</button>
+    </div>
+  </header>
+
+  <div class="diff" id="diff">
+    <button data-d="facil">Fácil</button>
+    <button data-d="medio">Médio</button>
+    <button data-d="dificil">Difícil</button>
+  </div>
+
+  <div class="clock">
+    <div><div class="lbl">Sessão atual</div><div class="big" id="time">00:00</div></div>
+    <div class="rec"><div class="lbl">Recorde <span id="recLvl"></span></div><b id="rec">--:--</b></div>
+  </div>
+
+  <div class="stats">
+    <span>Erros: <b id="errs">0</b></span>
+    <span>Faltam: <b id="left">0</b></span>
+    <span>Média: <b id="avg">--:--</b></span>
+  </div>
+
+  <div class="boardwrap" id="boardwrap">
+    <div class="board" id="board"></div>
+    <div class="pauseov"><button id="resumeBtn">▶ Continuar</button></div>
+  </div>
+
+  <div class="tools">
+    <button id="pauseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5v14"/><path d="M15 5v14"/></svg><span id="pauseLbl">Pausar</span></button>
+    <button id="undoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Desfazer</button>
+    <button id="eraseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>Apagar</button>
+    <button id="restartBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Reiniciar</button>
+  </div>
+
+  <div class="pad" id="pad"></div>
+
+  <div class="hint">Toque numa célula e escolha o número. Números em <b style="color:var(--user)">azul</b> são seus e podem ser trocados; os pretos vieram no tabuleiro e são fixos.</div>
+</div>
+
+<div class="modal" id="winModal">
+  <div class="box">
+    <h2>🎉 Parabéns!</h2>
+    <div id="winRec" class="rec-badge" style="display:none">🏆 Novo recorde!</div>
+    <p id="winText"></p>
+    <div class="row"><button class="pri" id="winNew">Jogar de novo</button></div>
+  </div>
+</div>
+
+<div class="modal" id="statsModal">
+  <div class="box">
+    <h2>Estatísticas</h2>
+    <div class="stgrid" id="stGrid"></div>
+    <div class="row"><button class="pri" id="statsClose">Fechar</button></div>
+    <button class="linkbtn" id="statsReset">Zerar estatísticas</button>
+  </div>
+</div>
+
+<div class="modal" id="confirmModal">
+  <div class="box">
+    <h2 id="cTitle">Novo jogo?</h2>
+    <p id="cText">O jogo atual será descartado.</p>
+    <div class="row"><button class="sec" id="cNo">Cancelar</button><button class="pri" id="cYes">Confirmar</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const LEVELS = { facil:{label:'Fácil', givens:40}, medio:{label:'Médio', givens:32}, dificil:{label:'Difícil', givens:25} };
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), padEl = $('pad');
+
+  let st = null;           // estado do jogo
+  let selected = -1;
+  let timerId = null;
+
+  // ---------- Gerador ----------
+  const rowOf = i => Math.floor(i/9), colOf = i => i%9, boxOf = i => Math.floor(rowOf(i)/3)*3 + Math.floor(colOf(i)/3);
+  const PEERS = Array.from({length:81}, (_, i) => {
+    const s = new Set();
+    for (let j=0;j<81;j++) if (j!==i && (rowOf(j)===rowOf(i)||colOf(j)===colOf(i)||boxOf(j)===boxOf(i))) s.add(j);
+    return [...s];
+  });
+  const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+  const canPlace = (g,i,v) => PEERS[i].every(p => g[p]!==v);
+
+  function fillFull(g, i=0){
+    if (i===81) return true;
+    if (g[i]) return fillFull(g, i+1);
+    for (const v of shuffle([1,2,3,4,5,6,7,8,9])) {
+      if (canPlace(g,i,v)) { g[i]=v; if (fillFull(g,i+1)) return true; g[i]=0; }
+    }
+    return false;
+  }
+
+  // Conta soluções (para no limite) — garante solução única
+  function countSolutions(g, limit=2){
+    let best=-1, bestOpts=null;
+    for (let i=0;i<81;i++){
+      if (g[i]) continue;
+      const opts=[]; for (let v=1;v<=9;v++) if (canPlace(g,i,v)) opts.push(v);
+      if (!opts.length) return 0;
+      if (!bestOpts || opts.length<bestOpts.length){best=i;bestOpts=opts; if(opts.length===1)break;}
+    }
+    if (best===-1) return 1;
+    let n=0;
+    for (const v of bestOpts){ g[best]=v; n+=countSolutions(g,limit-n); g[best]=0; if(n>=limit) break; }
+    return n;
+  }
+
+  function generate(level){
+    const solution = Array(81).fill(0); fillFull(solution);
+    const puzzle = solution.slice();
+    let filled = 81;
+    const target = LEVELS[level].givens;
+    for (const i of shuffle([...Array(81).keys()])){
+      if (filled<=target) break;
+      const bak = puzzle[i]; puzzle[i]=0;
+      if (countSolutions(puzzle.slice())!==1) puzzle[i]=bak; else filled--;
+    }
+    return { solution, puzzle };
+  }
+
+  // ---------- Estado ----------
+  function newGame(level){
+    const {solution, puzzle} = generate(level);
+    st = { level, solution, given: puzzle.map(v=>v>0), values: puzzle.slice(), errors:0, seconds:0, history:[], won:false };
+    selected = -1; setPaused(false);
+    recordStart(level);
+    save(); render(); startTimer();
+  }
+
+  // ---------- Estatísticas por nível ----------
+  const blankStats = () => ({ facil:{played:0,won:0,total:0,best:null}, medio:{played:0,won:0,total:0,best:null}, dificil:{played:0,won:0,total:0,best:null} });
+  let stats = (()=>{ try{ const s=JSON.parse(localStorage.getItem('sudoku-stats')); if(s && s.facil) return s; }catch(e){} return blankStats(); })();
+  const saveStats = () => { try{ localStorage.setItem('sudoku-stats', JSON.stringify(stats)); }catch(e){} };
+  const avgOf = s => s.won ? Math.round(s.total/s.won) : null;
+  const fmtOr = s => s==null ? '--:--' : fmt(s);
+
+  function recordStart(level){ stats[level].played++; saveStats(); }
+  function recordWin(level, secs){
+    const s=stats[level]; const isRecord = s.best==null || secs < s.best;
+    s.won++; s.total+=secs; if (isRecord) s.best=secs; saveStats();
+    return isRecord;
+  }
+
+  function renderStats(){
+    $('stGrid').innerHTML = Object.keys(LEVELS).map(k=>{
+      const s=stats[k];
+      return `<div class="stcard"><h3>${LEVELS[k].label}</h3><div class="kv">
+        <div>Jogadas<b>${s.played}</b></div>
+        <div>Concluídas<b>${s.won}</b></div>
+        <div>Recorde<b>${fmtOr(s.best)}</b></div>
+        <div>Média<b>${fmtOr(avgOf(s))}</b></div>
+      </div></div>`;
+    }).join('');
+  }
+
+  function save(){ try{ localStorage.setItem('sudoku-mockup', JSON.stringify(st)); }catch(e){} }
+  function load(){ try{ const s = JSON.parse(localStorage.getItem('sudoku-mockup')); if (s && s.values && s.values.length===81) return s; }catch(e){} return null; }
+
+  // ---------- Render ----------
+  function buildBoard(){
+    boardEl.innerHTML='';
+    for (let i=0;i<81;i++){
+      const c=document.createElement('div');
+      c.className=`cell r${rowOf(i)} c${colOf(i)}`;
+      c.addEventListener('pointerdown', e => { e.preventDefault(); select(i); });
+      boardEl.appendChild(c);
+    }
+    padEl.innerHTML='';
+    for (let v=1;v<=9;v++){
+      const b=document.createElement('button');
+      b.innerHTML=`${v}<small></small>`; b.dataset.v=v;
+      b.addEventListener('click', () => input(v));
+      padEl.appendChild(b);
+    }
+  }
+
+  function render(){
+    const selVal = selected>=0 ? st.values[selected] : 0;
+    const selPeers = selected>=0 ? new Set(PEERS[selected]) : new Set();
+    let left=0;
+    const counts=Array(10).fill(0);
+    [...boardEl.children].forEach((c,i)=>{
+      const v=st.values[i];
+      const wrong = v && !st.given[i] && v!==st.solution[i];
+      if (!v || wrong) left++;
+      if (v && !wrong) counts[v]++;
+      c.textContent = v || '';
+      c.classList.toggle('given', st.given[i]);
+      c.classList.toggle('user', !st.given[i] && !!v);
+      c.classList.toggle('wrong', !!wrong);
+      c.classList.toggle('sel', i===selected);
+      c.classList.toggle('peer', selPeers.has(i));
+      c.classList.toggle('same', i!==selected && selVal && v===selVal);
+    });
+    [...padEl.children].forEach(b=>{
+      const v=+b.dataset.v, rem=9-counts[v];
+      b.querySelector('small').textContent = rem>0 ? rem : '';
+      b.classList.toggle('done', rem<=0);
+    });
+    $('errs').textContent = st.errors;
+    $('left').textContent = left;
+    $('time').textContent = fmt(st.seconds);
+    const ls = stats[st.level];
+    $('rec').textContent = fmtOr(ls.best);
+    $('recLvl').textContent = '· ' + LEVELS[st.level].label;
+    $('avg').textContent = fmtOr(avgOf(ls));
+    document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on', b.dataset.d===st.level));
+  }
+
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+  // ---------- Interação ----------
+  function select(i){ selected=i; render(); }
+
+  function setValue(i, v, record=true){
+    const prev = st.values[i];
+    if (prev===v) return;
+    if (record) st.history.push({i, prev});
+    st.values[i]=v;
+    if (v && v!==st.solution[i]) { st.errors++; if (navigator.vibrate) try{navigator.vibrate(60)}catch(e){} }
+    const c=boardEl.children[i]; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+    save(); render(); checkWin();
+  }
+
+  function input(v){
+    if (paused || st.won || selected<0 || st.given[selected]) return;   // pré-preenchidas são bloqueadas
+    setValue(selected, st.values[selected]===v ? 0 : v);      // tocar o mesmo número apaga
+  }
+
+  function erase(){
+    if (paused || st.won || selected<0 || st.given[selected]) return;
+    setValue(selected, 0);
+  }
+
+  function undo(){
+    if (paused || st.won) return;
+    const h = st.history.pop(); if (!h) return;
+    st.values[h.i]=h.prev; selected=h.i; save(); render();
+  }
+
+  function checkWin(){
+    if (st.values.every((v,i)=>v===st.solution[i])){
+      st.won=true; stopTimer(); save();
+      const isRecord = recordWin(st.level, st.seconds);
+      $('winRec').style.display = isRecord ? 'inline-block' : 'none';
+      render();
+      $('winText').textContent = `Você resolveu o nível ${LEVELS[st.level].label} em ${fmt(st.seconds)} com ${st.errors} erro${st.errors===1?'':'s'}.`;
+      setTimeout(()=>$('winModal').classList.add('show'), 250);
+    }
+  }
+
+  // ---------- Timer ----------
+  function startTimer(){
+    stopTimer();
+    if (st.won) return;
+    timerId=setInterval(()=>{ if(document.hidden || paused) return; st.seconds++; $('time').textContent=fmt(st.seconds); if(st.seconds%5===0) save(); },1000);
+  }
+  function stopTimer(){ if (timerId) clearInterval(timerId); timerId=null; }
+
+  // ---------- Pausa ----------
+  let paused=false;
+  function setPaused(p){
+    paused = p && !(st && st.won);
+    $('boardwrap').classList.toggle('paused', paused);
+    $('pauseLbl').textContent = paused ? 'Continuar' : 'Pausar';
+  }
+  $('pauseBtn').onclick = () => setPaused(!paused);
+  $('resumeBtn').onclick = () => setPaused(false);
+
+  // ---------- Confirmações ----------
+  let pendingAction=null;
+  function confirmThen(title, text, fn){
+    const inProgress = !st.won && st.values.some((v,i)=>v && !st.given[i]);
+    if (!inProgress) return fn();
+    ask(title, text, fn);
+  }
+  function ask(title, text, fn){
+    $('cTitle').textContent=title; $('cText').textContent=text; pendingAction=fn;
+    $('confirmModal').classList.add('show');
+  }
+  $('cNo').onclick=()=>{ $('confirmModal').classList.remove('show'); pendingAction=null; };
+  $('cYes').onclick=()=>{ $('confirmModal').classList.remove('show'); const f=pendingAction; pendingAction=null; f && f(); };
+
+  // ---------- Eventos ----------
+  $('newBtn').onclick = () => confirmThen('Novo jogo?', 'O jogo atual será descartado.', ()=>newGame(st.level));
+  $('eraseBtn').onclick = erase;
+  $('undoBtn').onclick = undo;
+  $('restartBtn').onclick = () => confirmThen('Reiniciar?', 'Todos os números que você preencheu serão apagados.', ()=>{
+    st.values = st.values.map((v,i)=>st.given[i]?v:0); st.history=[]; st.errors=0; st.seconds=0; st.won=false; selected=-1; save(); render(); startTimer();
+  });
+  document.querySelectorAll('#diff button').forEach(b=> b.onclick = () => {
+    if (b.dataset.d===st.level) return;
+    confirmThen(`Mudar para ${LEVELS[b.dataset.d].label}?`, 'Um novo tabuleiro será sorteado e o atual será descartado.', ()=>newGame(b.dataset.d));
+  });
+  $('statsBtn').onclick = () => { renderStats(); $('statsModal').classList.add('show'); };
+  $('statsClose').onclick = () => $('statsModal').classList.remove('show');
+  $('statsReset').onclick = () => ask('Zerar estatísticas?', 'Recordes, médias e contagem de jogos de todos os níveis serão apagados.', ()=>{
+    stats = blankStats(); saveStats(); renderStats(); render();
+  });
+  $('winNew').onclick = () => { $('winModal').classList.remove('show'); newGame(st.level); };
+
+  // Teclado (para testar no computador)
+  document.addEventListener('keydown', e=>{
+    if (/^[1-9]$/.test(e.key)) input(+e.key);
+    else if (e.key==='Backspace'||e.key==='Delete'||e.key==='0') erase();
+    else if (e.key.startsWith('Arrow')){
+      if (selected<0) selected=0;
+      const r=rowOf(selected), c=colOf(selected);
+      const d={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]}[e.key];
+      select(((r+d[0]+9)%9)*9 + (c+d[1]+9)%9); e.preventDefault();
+    }
+  });
+
+  // ---------- Início ----------
+  buildBoard();
+  const saved = load();
+  if (saved) { st = saved; st.history = st.history || []; render(); startTimer(); }
+  else newGame('facil');
+})();
+</script>
+</body>
+</html>
