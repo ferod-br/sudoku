@@ -1,6 +1,6 @@
 // Service worker: permite jogar sem internet.
 // Estratégia: tenta a rede primeiro (para receber atualizações) e, se falhar, usa a cópia guardada.
-const CACHE = 'sudoku-v3';
+const CACHE = 'sudoku-v4';
 const ASSETS = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -93,6 +93,39 @@
   .pad button.done{opacity:.3}
   .pad.notesmode button{color:var(--muted);font-size:clamp(17px,5vw,22px);padding-top:13px}
   .pad button:active,.tools button:active,.newbtn:active,.iconbtn:active{transform:scale(.95)}
+  .screen{display:none}
+  .screen.on{display:flex}
+  .backbtn{border:0;background:var(--card);color:var(--ink);height:38px;padding:0 12px 0 8px;border-radius:12px;font-size:15px;font-weight:600;
+    display:flex;align-items:center;gap:2px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .backbtn svg{width:20px;height:20px}
+  .hleft{display:flex;align-items:center;gap:10px;min-width:0}
+  .lvltitle{font-size:20px;font-weight:800;letter-spacing:-.3px;white-space:nowrap}
+  /* ---- Tela inicial ---- */
+  .home{justify-content:flex-start;gap:16px}
+  .brand{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0 6px}
+  .brand img{width:84px;height:84px;border-radius:20px;box-shadow:0 6px 18px rgba(37,99,235,.25)}
+  .brand h1{font-size:34px}
+  .brand p{margin:0;color:var(--muted);font-size:14px}
+  .contcard{border:0;width:100%;text-align:left;background:var(--accent);color:#fff;border-radius:18px;padding:16px 18px;
+    display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 18px rgba(37,99,235,.25)}
+  .contcard .t{font-size:19px;font-weight:800}
+  .contcard .s{font-size:13.5px;opacity:.9;margin-top:3px;font-variant-numeric:tabular-nums}
+  .contcard svg{width:30px;height:30px;flex:none}
+  .sect{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:6px 2px -6px}
+  .levels{display:flex;flex-direction:column;gap:9px}
+  .lvlbtn{border:0;width:100%;background:var(--card);color:var(--ink);border-radius:16px;padding:14px 16px;text-align:left;
+    display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .lvlbtn .n{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .lvlbtn .d{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .lvlbtn .r{text-align:right;font-size:11px;color:var(--muted);font-weight:600}
+  .lvlbtn .r b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:1px}
+  .dots{display:flex;gap:3px}
+  .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .dots i.f{background:var(--accent)}
+  .homestats{border:0;background:var(--card);color:var(--ink);border-radius:16px;padding:14px;font-size:16px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);margin-top:4px}
+  .homestats svg{width:20px;height:20px}
+  .lvlbtn:active,.contcard:active,.homestats:active,.backbtn:active{transform:scale(.98)}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
   .modal.show{display:flex}
   .modal .box{background:var(--card);border-radius:20px;padding:22px;width:100%;max-width:380px;text-align:center;max-height:88vh;overflow:auto}
@@ -126,16 +159,28 @@
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
+<div class="app screen home" id="home">
+  <div class="brand">
+    <img src="apple-touch-icon.png" alt="">
     <h1>Sudoku</h1>
+  </div>
+  <div id="contWrap"></div>
+  <div class="sect">Novo jogo</div>
+  <div class="levels" id="levels"></div>
+  <button class="homestats" id="homeStats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>Estatísticas</button>
+</div>
+
+<div class="app screen" id="game">
+  <header>
+    <div class="hleft">
+      <button class="backbtn" id="backBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Início</button>
+      <div class="lvltitle" id="lvlTitle"></div>
+    </div>
     <div class="hbtns">
       <button class="iconbtn" id="statsBtn" aria-label="Estatísticas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></button>
       <button class="newbtn" id="newBtn">Novo jogo</button>
     </div>
   </header>
-
-  <div class="seg" id="diff"></div>
 
   <div class="clock">
     <div><div class="lbl">Sessão atual</div><div class="big" id="time">00:00</div></div>
@@ -171,7 +216,8 @@
     <h2>🎉 Parabéns!</h2>
     <div id="winRec" class="rec-badge" style="display:none">🏆 Novo recorde!</div>
     <p id="winText"></p>
-    <div class="row"><button class="sec" id="winStats">Estatísticas</button><button class="pri" id="winNew">Jogar de novo</button></div>
+    <div class="row"><button class="sec" id="winHome">Início</button><button class="pri" id="winNew">Jogar de novo</button></div>
+    <button class="linkbtn" id="winStats">Ver estatísticas</button>
   </div>
 </div>
 
@@ -302,7 +348,7 @@
              errors:0, seconds:0, history:[], won:false };
       selected = -1; setPaused(false);
       recordStart(level);
-      save(); render(); startTimer();
+      save(); showGame();
       $('loading').classList.remove('show');
     }, 30);
   }
@@ -322,7 +368,6 @@
 
   // ================= Render =================
   function buildUI(){
-    $('diff').innerHTML = LV.map(k=>`<button data-d="${k}">${LEVELS[k].label}</button>`).join('');
     $('statsTabs').innerHTML = LV.map(k=>`<button data-d="${k}">${LEVELS[k].label}</button>`).join('');
     boardEl.innerHTML='';
     for (let i=0;i<81;i++){
@@ -378,7 +423,50 @@
     $('rec').textContent = fmtOr(ls.best);
     $('recLvl').textContent = '· ' + LEVELS[st.level].label;
     $('avg').textContent = fmtOr(avgOf(ls));
-    document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on', b.dataset.d===st.level));
+    $('lvlTitle').textContent = LEVELS[st.level].label;
+  }
+
+  // ================= Telas =================
+  let onGame = false;
+  const inProgress = () => !!st && !st.won;
+
+  function showHome(){
+    if (st) { stopTimer(); setPaused(false); save(); }
+    onGame = false; selected = -1;
+    renderHome();
+    $('game').classList.remove('on'); $('home').classList.add('on');
+    window.scrollTo(0,0);
+  }
+  function showGame(){
+    onGame = true;
+    $('home').classList.remove('on'); $('game').classList.add('on');
+    render(); startTimer();
+  }
+
+  function renderHome(){
+    if (inProgress()) {
+      const left = st.values.filter((v,i)=>!v || v!==st.solution[i]).length;
+      $('contWrap').innerHTML = `<button class="contcard" id="contBtn">
+        <div><div class="t">Continuar partida</div>
+        <div class="s">${LEVELS[st.level].label} · ${fmt(st.seconds)} · faltam ${left}</div></div>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>
+      </button>`;
+      $('contBtn').onclick = showGame;
+    } else $('contWrap').innerHTML = '';
+
+    $('levels').innerHTML = LV.map((k,n)=>{
+      const s = stats[k];
+      return `<button class="lvlbtn" data-d="${k}">
+        <div><div class="n">${LEVELS[k].label}<span class="dots">${[0,1,2,3].map(j=>`<i class="${j<=n?'f':''}"></i>`).join('')}</span></div>
+        <div class="d">${LEVELS[k].givens} números iniciais${s.won?` · ${s.won} concluída${s.won===1?'':'s'}`:''}</div></div>
+        <div class="r">Recorde<b>${fmtOr(s.best)}</b></div>
+      </button>`;
+    }).join('');
+    document.querySelectorAll('#levels .lvlbtn').forEach(b => b.onclick = () => {
+      const lv = b.dataset.d;
+      if (inProgress()) ask('Começar novo jogo?', `Sua partida de ${LEVELS[st.level].label} em andamento (${fmt(st.seconds)}) será descartada.`, ()=>newGame(lv));
+      else newGame(lv);
+    });
   }
 
   // ================= Efeitos =================
@@ -545,7 +633,7 @@
   }
 
   function openStats(level){
-    statsLevel = level || st.level; renderStats();
+    statsLevel = level || (st ? st.level : 'facil'); renderStats();
     $('statsModal').classList.add('show');
   }
 
@@ -575,22 +663,23 @@
     st.values = st.values.map((v,i)=>st.given[i]?v:0); st.notes=Array(81).fill(0);
     st.history=[]; st.errors=0; st.seconds=0; st.won=false; selected=-1; setPaused(false); save(); render(); startTimer();
   });
-  document.querySelectorAll('#diff button').forEach(b=> b.onclick = () => {
-    if (b.dataset.d===st.level) return;
-    confirmThen(`Mudar para ${LEVELS[b.dataset.d].label}?`, 'Um novo tabuleiro será sorteado e o atual será descartado.', ()=>newGame(b.dataset.d));
-  });
+  $('backBtn').onclick = showHome;
+  $('homeStats').onclick = () => openStats();
   document.querySelectorAll('#statsTabs button').forEach(b=> b.onclick = () => { statsLevel=b.dataset.d; renderStats(); });
   $('statsBtn').onclick = () => openStats();
   $('statsClose').onclick = () => $('statsModal').classList.remove('show');
   $('statsReset').onclick = () => ask('Zerar estatísticas?', 'Recordes, médias, histórico e contagem de jogos de todos os níveis serão apagados.', ()=>{
-    stats = loadStats(); LV.forEach(k=>stats[k]=blankLevel()); saveStats(); renderStats(); render();
+    stats = loadStats(); LV.forEach(k=>stats[k]=blankLevel()); saveStats(); renderStats();
+    if (onGame) render(); else renderHome();
   });
+  $('winHome').onclick = () => { $('winModal').classList.remove('show'); showHome(); };
   $('winNew').onclick = () => { $('winModal').classList.remove('show'); newGame(st.level); };
   $('winStats').onclick = () => { $('winModal').classList.remove('show'); openStats(st.level); };
 
   // Teclado (para testar no computador)
   document.addEventListener('keydown', e=>{
-    if (!st) return;
+    if (!st || !onGame) return;
+    if (e.key==='Escape') return showHome();
     if (/^[1-9]$/.test(e.key)) input(+e.key);
     else if (e.key==='Backspace'||e.key==='Delete'||e.key==='0') erase();
     else if (e.key==='n'||e.key==='N') { notesMode=!notesMode; render(); }
@@ -604,9 +693,8 @@
   });
 
   // ================= Início =================
-  const saved = load();
-  if (saved) { st = saved; render(); startTimer(); }
-  else newGame('facil');
+  st = load();          // partida salva (se houver) aparece em "Continuar"
+  showHome();
 
   // Modo offline: o service worker guarda o jogo no aparelho
   if ('serviceWorker' in navigator && location.protocol==='https:') {
